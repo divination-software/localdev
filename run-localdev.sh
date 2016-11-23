@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # One-click build script for locally-hosted Divination
 
+# ref: http://stackoverflow.com/a/246128
+SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}"  )" && pwd  )"
+
 function gen_ssl_cert {
   # ref: http://crohr.me/journal/2014/generate-self-signed-ssl-certificate-without-prompt-noninteractive-mode.html
   openssl genrsa -des3 -passout pass:x -out server.pass.key 2048
@@ -12,10 +15,10 @@ function gen_ssl_cert {
 }
 
 # 1. Ensure requirements are installed and at the proper version
-# 2. Clone (or update our local clone of) the repositories
+# 2. Ensure we have a local copy of the server and sim repos
 # 3. Build the images
-# 4. Run docker-compose
-# 5. Open the browser
+# 4. Open the browser
+# 5. Run docker-compose
 
 
 # 1. Ensure requirements are installed
@@ -31,42 +34,33 @@ for req in "${REQUIREMENTS[@]}"; do
   command -v "$req" >/dev/null 2>&1 || { echo >&2 "I require $req but it's not installed.  Aborting."; exit 1; }
 done
 
-# 2. Clone (or update our local clone of) the repositories
-# Sim
-if [ ! -d "sim" ]; then
-  echo "=> Cloning sim"
-  git clone https://github.com/divination-software/sim.git >/dev/null 2>&1
-fi
-echo "=> Updating sim"
-cd sim
-git checkout develop >/dev/null 2>&1
-git pull origin develop >/dev/null 2>&1
+# 2. Ensure we have a local copy of the server and sim repos
 cd ..
-
-# Server
-if [ ! -d "server" ]; then
-  echo "=> Cloning server"
-  git clone https://github.com/divination-software/server.git >/dev/null 2>&1
+if [ ! -d "$SOURCE_DIR/../sim" ]; then
+  echo "Couldn't find sim repository. Ensure $(pwd)/sim exists."
+  exit 1
 fi
-cd server
-echo "=> Updating server"
-git checkout develop >/dev/null 2>&1
-git pull origin develop >/dev/null 2>&1
-cd ..
+if [ ! -d "$SOURCE_DIR/../server" ]; then
+  echo "Couldn't find server repository. Ensure $(pwd)/server exists."
+  exit 1
+fi
 
 # 3. Build the images
+cd "$SOURCE_DIR/../server"
+echo "=> Destroying pre-existing images"
+docker-compose -f docker-compose.dev.yml down >/dev/null 2>&1
+
 # Sim
-cd sim
+cd "$SOURCE_DIR/../sim"
 if [[ ! -f "client-key.pem" && ! -f "client-cert.pem" ]]; then
   echo "=> Generating SSL Certificate for sim"
   gen_ssl_cert >/dev/null 2>&1
 fi
 echo "=> Building docker image for sim"
-docker build -t divination-software/sim:dev . >/dev/null 2>&1
-cd ..
+docker build -t divinationsoftware/sim:dev . >/dev/null 2>&1
 
 # Server
-cd server
+cd "$SOURCE_DIR/../server"
 if [[ ! -f "client-key.pem" && ! -f "client-cert.pem" ]]; then
   echo "=> Generating SSL Certificate for server"
   gen_ssl_cert >/dev/null 2>&1
@@ -79,18 +73,14 @@ echo "=> Running webpack"
 # Disable watch if it's active in the webpack config
 sed -i.bak 's/watch: true/watch: false/' webpack.config.js
 webpack >/dev/null 2>&1
+# Restore webpack config
+mv webpack.config.js.bak webpack.config.js
 
 echo "=> Building docker image for server"
-docker build -t divination-software/server:dev . >/dev/null 2>&1
+docker build -t divinationsoftware/server:dev -f Dockerfile.dev . >/dev/null 2>&1
 
 
-# 4. Run docker-compose
-echo "=> Composing server and sim docker images"
-docker-compose -f docker-compose.dev.yml up -d >/dev/null 2>&1
-cd ..
-
-
-# 5. Open the browser
+# 4. Open the browser
 echo "=> Opening browser"
 LOCALDEV_URL="https://localhost:8080"
 if [[ "$(uname -s)" == "Darwin" ]]; then
@@ -103,19 +93,12 @@ fi
 
 echo ""
 echo ""
-echo "Docker images are composed and running!"
+echo "Docker images are being composed now!"
 echo ""
 echo "Check it out at: $LOCALDEV_URL"
 echo ""
-echo "Useful Docker commands:"
-echo "  Stop the cluster:"
-echo "    docker-compose -f server/docker-compose.dev.yml stop"
-echo ""
-echo "  Remove the cluster:"
-echo "    docker-compose -f server/docker-compose.dev.yml down"
-echo ""
-echo "  Show the containers' log data:"
-echo "    docker-compose -f server/docker-compose.dev.yml logs"
-echo ""
-echo "  Show the containers' status:"
-echo "    docker-compose -f server/docker-compose.dev.yml ps"
+
+
+# 5. Run docker-compose
+echo "=> Composing server and sim docker images"
+docker-compose -f docker-compose.dev.yml up
