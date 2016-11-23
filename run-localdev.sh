@@ -46,6 +46,10 @@ if [ ! -d "$SOURCE_DIR/../server" ]; then
 fi
 
 # 3. Build the images
+cd "$SOURCE_DIR/../server"
+echo "=> Destroying pre-existing images"
+docker-compose -f docker-compose.dev.yml down >/dev/null 2>&1
+
 # Sim
 cd "$SOURCE_DIR/../sim"
 if [[ ! -f "client-key.pem" && ! -f "client-cert.pem" ]]; then
@@ -53,7 +57,7 @@ if [[ ! -f "client-key.pem" && ! -f "client-cert.pem" ]]; then
   gen_ssl_cert >/dev/null 2>&1
 fi
 echo "=> Building docker image for sim"
-docker build -t divination-software/sim:dev . >/dev/null 2>&1
+docker build -t divinationsoftware/sim:dev . >/dev/null 2>&1
 
 # Server
 cd "$SOURCE_DIR/../server"
@@ -73,7 +77,7 @@ webpack >/dev/null 2>&1
 mv webpack.config.js.bak webpack.config.js
 
 echo "=> Building docker image for server"
-docker build -t divination-software/server:dev . >/dev/null 2>&1
+docker build -t divinationsoftware/server:dev -f Dockerfile.dev . >/dev/null 2>&1
 
 
 # 4. Open the browser
