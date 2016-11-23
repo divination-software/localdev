@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # One-click build script for locally-hosted Divination
 
+# ref: http://stackoverflow.com/a/246128
+SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}"  )" && pwd  )"
+
 function gen_ssl_cert {
   # ref: http://crohr.me/journal/2014/generate-self-signed-ssl-certificate-without-prompt-noninteractive-mode.html
   openssl genrsa -des3 -passout pass:x -out server.pass.key 2048
@@ -33,28 +36,27 @@ done
 
 # 2. Ensure we have a local copy of the server and sim repos
 cd ..
-if [ ! -d "$(pwd)/sim" ]; then
+if [ ! -d "$SOURCE_DIR/../sim" ]; then
   echo "Couldn't find sim repository. Ensure $(pwd)/sim exists."
   exit 1
 fi
-if [ ! -d "$(pwd)/server" ]; then
+if [ ! -d "$SOURCE_DIR/../server" ]; then
   echo "Couldn't find server repository. Ensure $(pwd)/server exists."
   exit 1
 fi
 
 # 3. Build the images
 # Sim
-cd sim
+cd "$SOURCE_DIR/../sim"
 if [[ ! -f "client-key.pem" && ! -f "client-cert.pem" ]]; then
   echo "=> Generating SSL Certificate for sim"
   gen_ssl_cert >/dev/null 2>&1
 fi
 echo "=> Building docker image for sim"
 docker build -t divination-software/sim:dev . >/dev/null 2>&1
-cd ..
 
 # Server
-cd server
+cd "$SOURCE_DIR/../server"
 if [[ ! -f "client-key.pem" && ! -f "client-cert.pem" ]]; then
   echo "=> Generating SSL Certificate for server"
   gen_ssl_cert >/dev/null 2>&1
@@ -87,11 +89,12 @@ fi
 
 echo ""
 echo ""
-echo "Docker images are starting up now!"
+echo "Docker images are being composed now!"
 echo ""
 echo "Check it out at: $LOCALDEV_URL"
+echo ""
+
 
 # 5. Run docker-compose
 echo "=> Composing server and sim docker images"
 docker-compose -f docker-compose.dev.yml up
-cd ..
