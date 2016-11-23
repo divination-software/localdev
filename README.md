@@ -1,8 +1,8 @@
-# Divination Localdev
+# Divination Local Development
 
-> One-"click" install script for Divination
+> Local development quality-of-life improvements for Joble
 
-## Instructions
+## One-"click" install script for Divination
 
-1. `chmod +x build-localdev.sh`
-1. `bash build-localdev.sh`
+1. `chmod +x run-localdev.sh`
+1. `bash run-localdev.sh`
